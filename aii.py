@@ -20,12 +20,12 @@ TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Tele
 # Anda memasukkan API Key langsung di sini.
 # PERINGATAN: Ini kurang aman jika kode ini dibagikan atau disimpan di repositori publik.
 # Pastikan ini adalah API Key Anda yang VALID.
-# GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- API KEY GEMINI ANDA
+ GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac"  <--- API KEY GEMINI ANDA
 # ==============================================================================
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
 try:
-    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac": # Tambahan cek jika placeholder belum diisi
+    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac":  Tambahan cek jika placeholder belum diisi
         print("PERINGATAN: GOOGLE_GEMINI_API_KEY di dalam kode belum diisi dengan API Key yang valid.")
         gemini_vision_model = None
     else:
