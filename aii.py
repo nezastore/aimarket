@@ -24,8 +24,8 @@ GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- API KEY
 # ==============================================================================
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
-try:
-    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac": # Tambahan cek jika placeholder belum diisi
+#try:
+#    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac": # Tambahan cek jika placeholder belum diisi
         print("PERINGATAN: GOOGLE_GEMINI_API_KEY di dalam kode belum diisi dengan API Key yang valid.")
         gemini_vision_model = None
     else:
