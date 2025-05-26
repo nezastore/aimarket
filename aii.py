@@ -17,8 +17,6 @@ ALPHA_VANTAGE_API_KEY = "8DC4AP9DS0UVQDDM" # API ALPHA_VANTAGE Anda
 GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # API Gemini Anda (Catatan: Ini terlihat seperti Google API Key)
 
 # --- Timeframe Mapping ---
-# 'display_name': {'alphavantage_ohlcv_config': {...} }
-# Tanpa Binance, kita hanya perlu konfigurasi Alpha Vantage
 TIMEFRAME_MAP = {
     "1 Jam": {'alphavantage_ohlcv_config': {'function': 'FX_INTRADAY', 'interval': '60min', 'outputsize': 'compact'}, 'limit': 100},
     # "4 Jam": {'alphavantage_ohlcv_config': None, 'limit': 200}, # Alpha Vantage tidak ada 4h intraday untuk Kripto/Forex intraday
@@ -26,8 +24,6 @@ TIMEFRAME_MAP = {
     "1 Minggu": {'alphavantage_ohlcv_config': {'function': 'FX_WEEKLY', 'outputsize': 'compact'}, 'limit': 200},
     "1 Bulan": {'alphavantage_ohlcv_config': {'function': 'FX_MONTHLY', 'outputsize': 'compact'}, 'limit': 200},
 }
-# Catatan: Karena 4 Jam tidak tersedia di Alpha Vantage untuk intraday, saya menghapusnya dari map.
-# Jika Anda tetap ingin 4 Jam untuk kripto, Anda perlu API kripto lain (selain Binance).
 
 # --- Global Rate Limit Tracker for Alpha Vantage ---
 LAST_AV_CALL_TIME = 0
@@ -48,18 +44,19 @@ def detect_market_and_normalize_symbol(user_symbol):
     user_symbol = user_symbol.upper().replace("/", "").replace(" ", "") # Bersihkan input
     
     # 1. Kripto (umumnya diakhiri USD/USDT/BUSD)
-    # Sekarang akan sepenuhnya mengandalkan Alpha Vantage untuk OHLCV kripto
     if re.match(r'^[A-Z]{2,5}(USDT|USD|BUSD)$', user_symbol):
-        # Alpha Vantage untuk kripto menggunakan FUNCTION_CRYPTO_INTRADAY/DAILY/WEEKLY/MONTHLY
-        # dan from_symbol adalah koin (misal BTC), to_symbol adalah mata uang (misal USD)
-        base_currency = user_symbol[:-3] if user_symbol.endswith(('USD', 'BUSD')) else user_symbol[:-4] # Misal BTC dari BTCUSD
-        quote_currency = user_symbol[-3:] if user_symbol.endswith(('USD', 'BUSD')) else user_symbol[-4:] # Misal USD dari BTCUSD
+        base_currency = user_symbol[:-3] if user_symbol.endswith(('USD', 'BUSD')) else user_symbol[:-4]
+        quote_currency = user_symbol[-3:] if user_symbol.endswith(('USD', 'BUSD')) else user_symbol[-4:]
         
         return {
             'type': 'crypto',
             'display_name': user_symbol,
-            'symbols': {'av_from': base_currency, 'av_to': quote_currency.replace('USDT', 'USD')}, # AV sering pakai USD bukan USDT
-            'price_source': 'gemini' # Bisa juga diganti 'alphavantage_spot'
+            'symbols': {
+                'av_from': base_currency, 
+                'av_to': quote_currency.replace('USDT', 'USD'), # AV sering pakai USD bukan USDT untuk OHLCV
+                'gemini_symbol': user_symbol.lower() # Simbol untuk Gemini (lowercase)
+            },
+            'price_source': 'gemini' # <-- PENTING: Kembali menggunakan Gemini untuk harga spot kripto
         }
     
     # 2. Forex (pasangan 6 huruf, 3 huruf untuk setiap mata uang)
@@ -82,16 +79,16 @@ def detect_market_and_normalize_symbol(user_symbol):
             'price_source': 'alphavantage_spot'
         }
     
-    return None # Simbol tidak dikenal atau tidak didukung
+    return None 
 
-# --- Fungsi Pengambilan Data OHLCV ---
+# --- Fungsi Pengambilan Data OHLCV (Alpha Vantage saja, sama seperti sebelumnya) ---
 async def get_ohlcv_data(market_info, timeframe_display_name):
     ohlcv_data_config = TIMEFRAME_MAP[timeframe_display_name]
     limit = ohlcv_data_config['limit']
     df = None
     error_message = None
 
-    wait_for_alphavantage_rate_limit() # Tunggu rate limit untuk setiap panggilan AV
+    wait_for_alphavantage_rate_limit()
 
     av_symbol_map = market_info['symbols']
     from_currency = av_symbol_map['av_from']
@@ -105,29 +102,23 @@ async def get_ohlcv_data(market_info, timeframe_display_name):
     function = av_config['function']
     outputsize = av_config['outputsize']
     
-    # Menentukan function untuk Kripto di Alpha Vantage
     if market_info['type'] == 'crypto':
         if function == 'FX_INTRADAY': function = 'CRYPTO_INTRADAY'
         elif function == 'FX_DAILY': function = 'DIGITAL_CURRENCY_DAILY'
         elif function == 'FX_WEEKLY': function = 'DIGITAL_CURRENCY_WEEKLY'
         elif function == 'FX_MONTHLY': function = 'DIGITAL_CURRENCY_MONTHLY'
-        # Kripto memiliki endpoint berbeda di AV: DIGITAL_CURRENCY_DAILY/WEEKLY/MONTHLY
-        # Intraday (e.g., 60min) pakai CRYPTO_INTRADAY.
-        # Catatan: DIGITAL_CURRENCY_DAILY/WEEKLY/MONTHLY biasanya tidak punya "volume"
-        # dalam makna tradisional seperti saham/forex. Kolomnya "market cap (USD)"
-        # atau "volume (USD)". Kita akan ambil '5. volume' atau '5. market cap (USD)'
 
     url_params = f"function={function}&symbol={from_currency}&market={to_currency}&outputsize={outputsize}&apikey={ALPHA_VANTAGE_API_KEY}"
-    if 'interval' in av_config: # Untuk intraday (FX_INTRADAY / CRYPTO_INTRADAY)
+    if 'interval' in av_config:
         url_params += f"&interval={av_config['interval']}"
         key_data = f"Time Series FX ({av_config['interval']})" if market_info['type'] != 'crypto' else f"Time Series Crypto ({av_config['interval']})"
-    else: # Untuk daily, weekly, monthly
+    else:
         if market_info['type'] == 'crypto':
             key_data = "Time Series (Digital Currency Daily)" if function == 'DIGITAL_CURRENCY_DAILY' else \
                        "Time Series (Digital Currency Weekly)" if function == 'DIGITAL_CURRENCY_WEEKLY' else \
                        "Time Series (Digital Currency Monthly)"
-            url_params = f"function={function}&symbol={from_currency}&market={to_currency}&outputsize={outputsize}&apikey={ALPHA_VANTAGE_API_KEY}" # Crypto daily/weekly/monthly doesn't use from_symbol/to_symbol, but symbol/market
-        else: # Forex/Commodity Daily/Weekly/Monthly
+            url_params = f"function={function}&symbol={from_currency}&market={to_currency}&outputsize={outputsize}&apikey={ALPHA_VANTAGE_API_KEY}"
+        else:
             key_data = {
                 'FX_DAILY': "Time Series FX (Daily)",
                 'FX_WEEKLY': "Time Series FX (Weekly)",
@@ -159,33 +150,31 @@ async def get_ohlcv_data(market_info, timeframe_display_name):
         df = pd.DataFrame.from_dict(raw_ohlcv, orient='index', dtype=float)
         df.index = pd.to_datetime(df.index)
         
-        # Penyesuaian kolom untuk Alpha Vantage (nama kolom berbeda untuk kripto vs forex)
         if market_info['type'] == 'crypto':
             df = df.rename(columns={
-                '1a. open (USD)': 'Open', '1b. open (USD)': 'Open', # AV has both
+                '1a. open (USD)': 'Open', '1b. open (USD)': 'Open',
                 '2a. high (USD)': 'High', '2b. high (USD)': 'High',
                 '3a. low (USD)': 'Low', '3b. low (USD)': 'Low',
                 '4a. close (USD)': 'Close', '4b. close (USD)': 'Close',
-                '5. volume': 'Volume', '5. adjusted close': 'Volume', # Fallback for some AV crypto daily data
-                '6. market cap (USD)': 'Volume' # For daily/weekly/monthly crypto AV data
+                '5. volume': 'Volume',
+                '6. market cap (USD)': 'Volume_MarketCap'
             })
-            # Try to get best available volume for crypto
             if 'Volume' not in df.columns:
-                if '5. volume' in df.columns:
+                if '5. volume' in raw_ohlcv[list(raw_ohlcv.keys())[0]]: 
                     df['Volume'] = df['5. volume']
-                elif '5. market cap (USD)' in df.columns:
-                    df['Volume'] = df['5. market cap (USD)']
+                elif 'Volume_MarketCap' in df.columns: 
+                    df['Volume'] = df['Volume_MarketCap']
                 else:
-                    df['Volume'] = 0 # Default to 0 if no volume data
-
-            df = df[['Open', 'High', 'Low', 'Close', 'Volume']] # Pastikan urutan benar
-        else: # Forex/Commodity
+                    df['Volume'] = 0 
+            
+            df = df[['Open', 'High', 'Low', 'Close', 'Volume']] 
+        else: 
             df = df.rename(columns={
                 '1. open': 'Open', '2. high': 'High', '3. low': 'Low', '4. close': 'Close', '5. volume': 'Volume'
             })
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
         
-        df = df.iloc[::-1] # Balik urutan agar terbaru di bawah
+        df = df.iloc[::-1]
 
     except requests.exceptions.RequestException as e:
         error_message = f"Error jaringan saat mengambil OHLCV Alpha Vantage ({market_info['display_name']}): {e}"
@@ -194,13 +183,13 @@ async def get_ohlcv_data(market_info, timeframe_display_name):
     
     return df, error_message
 
-# --- Fungsi Pengambilan Harga Terkini ---
+# --- Fungsi Pengambilan Harga Terkini (Mengembalikan Gemini untuk Kripto) ---
 async def get_current_price(market_info):
     price = None
     error_message = None
 
-    if market_info['price_source'] == 'gemini':
-        gemini_symbol = market_info['symbols']['gemini']
+    if market_info['price_source'] == 'gemini': # Jika sumber harga adalah Gemini
+        gemini_symbol = market_info['symbols']['gemini'] # <-- Kunci 'gemini' sekarang ada lagi di market_info['symbols'] untuk kripto
         url = f"https://api.gemini.com/v2/ticker/{gemini_symbol}"
         try:
             response = requests.get(url)
@@ -212,21 +201,17 @@ async def get_current_price(market_info):
         except KeyError:
             error_message = f"Simbol '{gemini_symbol}' tidak ditemukan atau respons Gemini tidak terduga. (Coba simbol kripto lain seperti BTCUSD)."
         
-    elif market_info['price_source'] == 'alphavantage_spot':
-        wait_for_alphavantage_rate_limit() # Tunggu rate limit
+    elif market_info['price_source'] == 'alphavantage_spot': # Jika sumber harga adalah Alpha Vantage
+        wait_for_alphavantage_rate_limit()
         av_symbol_map = market_info['symbols']
         from_currency = av_symbol_map['av_from']
         to_currency = av_symbol_map['av_to']
 
-        # Alpha Vantage untuk harga SPOT forex/commodity
         if market_info['type'] in ['forex', 'commodity']:
             url = f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency={from_currency}&to_currency={to_currency}&apikey={ALPHA_VANTAGE_API_KEY}"
-        # Alpha Vantage untuk harga SPOT crypto (GLOBAL_QUOTE, bukan DIGITAL_CURRENCY_DAILY)
         elif market_info['type'] == 'crypto':
             url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={from_currency}{to_currency}&apikey={ALPHA_VANTAGE_API_KEY}"
-            # Catatan: GLOBAL_QUOTE untuk kripto bisa jadi tidak se-realtime bursa
-            # dan format simbolnya 'BTCUSD' tanpa spasi.
-
+            
         try:
             response = requests.get(url)
             response.raise_for_status()
@@ -253,11 +238,9 @@ def calculate_indicators(df):
     df.ta.rsi(append=True)
     df.ta.macd(append=True)
     
-    # Pastikan ada cukup data untuk indikator (misal MACD butuh setidaknya 26 candle)
     if len(df) < 26: 
         return None, None, None, None 
 
-    # Cek jika ada NaN setelah perhitungan (misal karena data kurang dari periode indikator)
     if df['RSI_14'].isnull().all() or df['MACD_12_26_9'].isnull().all():
         return None, None, None, None
 
@@ -267,21 +250,18 @@ def calculate_indicators(df):
     latest_macd_s = df['MACDS_12_26_9'].iloc[-1]
     return latest_rsi, latest_macd, latest_macd_h, latest_macd_s
 
-# --- Fungsi Saran Buy/Sell dengan Alasan Spesifik untuk Candle Terakhir ---
+# --- Fungsi Saran Buy/Sell dengan Alasan Spesifik untuk Candle Terakhir (Sama seperti sebelumnya) ---
 def get_buy_sell_suggestion_with_reasons(df, rsi, macd, macd_h, macd_s):
     suggestion = "Netral"
     reasons = []
 
-    # Get previous MACD values for crossover detection
     prev_macd = None
     prev_macd_s = None
     if len(df) >= 2:
-        # Check for NaN in previous values before accessing
         if not pd.isna(df['MACD_12_26_9'].iloc[-2]) and not pd.isna(df['MACDS_12_26_9'].iloc[-2]):
             prev_macd = df['MACD_12_26_9'].iloc[-2]
             prev_macd_s = df['MACDS_12_26_9'].iloc[-2]
 
-    # Check for strong RSI signals
     if rsi < 30:
         suggestion = "Potensi Beli"
         reasons.append("RSI di bawah 30 (oversold) pada candle terakhir.")
@@ -289,34 +269,28 @@ def get_buy_sell_suggestion_with_reasons(df, rsi, macd, macd_h, macd_s):
         suggestion = "Potensi Jual"
         reasons.append("RSI di atas 70 (overbought) pada candle terakhir.")
     
-    # MACD Logic (Crossover strategy)
     if prev_macd is not None and prev_macd_s is not None:
-        # Bullish Crossover (MACD crosses ABOVE signal line)
-        # Check for actual cross (was below, now at or above) and not just floating around the line
-        if prev_macd < prev_macd_s and macd >= macd_s and not math.isclose(prev_macd, prev_macd_s, abs_tol=1e-9):
-            if "Beli" not in suggestion: # Prioritaskan sinyal buy kuat
+        if prev_macd < prev_macd_s and macd >= macd_s: 
+            if "Beli" not in suggestion: 
                 suggestion = "Beli Kuat" if "Potensi Beli" in suggestion else "Beli"
             reasons.append("Garis MACD baru saja memotong Garis Sinyal ke atas (sinyal bullish).")
-        # Bearish Crossover (MACD crosses BELOW signal line)
-        elif prev_macd > prev_macd_s and macd <= macd_s and not math.isclose(prev_macd, prev_macd_s, abs_tol=1e-9):
-            if "Jual" not in suggestion: # Prioritaskan sinyal sell kuat
+        elif prev_macd > prev_macd_s and macd <= macd_s: 
+            if "Jual" not in suggestion: 
                 suggestion = "Jual Kuat" if "Potensi Jual" in suggestion else "Jual"
             reasons.append("Garis MACD baru saja memotong Garis Sinyal ke bawah (sinyal bearish).")
     
-    # MACD Histogram momentum
     if len(df) >= 2:
         prev_macd_h = df['MACDH_12_26_9'].iloc[-2]
         if not pd.isna(prev_macd_h):
-            if macd_h > 0 and macd_h > prev_macd_h: # Histogram positif dan meningkat
+            if macd_h > 0 and macd_h > prev_macd_h:
                 if "Beli" not in suggestion and "Netral" in suggestion:
                     suggestion = "Potensi Beli"
                     reasons.append("Histogram MACD positif dan menunjukkan momentum kenaikan.")
-            elif macd_h < 0 and macd_h < prev_macd_h: # Histogram negatif dan menurun
+            elif macd_h < 0 and macd_h < prev_macd_h:
                 if "Jual" not in suggestion and "Netral" in suggestion:
                     suggestion = "Potensi Jual"
                     reasons.append("Histogram MACD negatif dan menunjukkan momentum penurunan.")
 
-    # Jika belum ada alasan kuat, berikan alasan netral
     if not reasons:
         reasons.append("Pasar saat ini netral berdasarkan indikator RSI dan MACD pada candle terakhir.")
 
@@ -336,21 +310,17 @@ def plot_candlestick_with_signals(df, symbol_display_name, timeframe_display, su
         mpf.make_addplot(pd.Series([70]*len(df), index=df.index), panel=3, color='gray', linestyle='--', alpha=0.5), # Overbought line
     ]
 
-    # Menandai sinyal buy/sell pada candle terakhir
     last_idx = df.index[-1]
     last_open = df['Open'].iloc[-1]
     last_close = df['Close'].iloc[-1]
     last_high = df['High'].iloc[-1]
     last_low = df['Low'].iloc[-1]
 
-    # Posisi marker relatif terhadap candle
-    marker_offset_factor = 0.05 # 5% dari tinggi candle
+    marker_offset_factor = 0.05 
     marker_offset = (last_high - last_low) * marker_offset_factor 
 
-    marker_size = 300 # Ukuran marker
+    marker_size = 300 
 
-    # Adjust marker position based on candle direction
-    # Place buy marker slightly below the low, sell marker slightly above the high
     buy_marker_pos = last_low - marker_offset
     sell_marker_pos = last_high + marker_offset
 
@@ -368,19 +338,18 @@ def plot_candlestick_with_signals(df, symbol_display_name, timeframe_display, su
                          ylabel_lower='Volume',
                          addplot=apds,
                          returnfig=True,
-                         figscale=1.5, # Skala gambar
-                         panel_ratios=(4,1,1,1), # Ratio for price, volume, MACD, RSI panels
-                         figsize=(12, 8) # Ukuran gambar lebih besar
+                         figscale=1.5,
+                         panel_ratios=(4,1,1,1),
+                         figsize=(12, 8)
                         )
 
-    # Tambahkan teks saran di grafik
     axes[0].text(0.01, 0.99, f"Saran: {suggestion}", transform=axes[0].transAxes, fontsize=12, va='top', ha='left', color='white')
     reasons_text = "Alasan: " + "\n".join(reasons)
     axes[0].text(0.01, 0.95, reasons_text, transform=axes[0].transAxes, fontsize=10, va='top', ha='left', color='white', wrap=True)
 
 
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150) # Tingkatkan DPI untuk kejernihan
+    fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
     buf.seek(0)
     
     return buf
@@ -408,20 +377,15 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
     
-    # Simpan market_info dan original_user_symbol untuk digunakan nanti
     context.user_data['market_info'] = market_info
     context.user_data['original_user_symbol'] = user_symbol
     
-    # Buat tombol timeframe berdasarkan ketersediaan API untuk tipe market
     keyboard = []
     for tf_display_name, tf_data in TIMEFRAME_MAP.items():
-        # Alpha Vantage (untuk Forex/Commodity/Crypto) tidak punya 4h intraday atau interval spesifik lainnya.
-        # Kita hanya menampilkan timeframe yang memang ada config di AV.
         if tf_data['alphavantage_ohlcv_config'] is None:
             continue 
         keyboard.append(InlineKeyboardButton(tf_display_name, callback_data=f"analyze_tf_{tf_display_name}"))
     
-    # Susun tombol, misal 2 per baris
     arranged_keyboard = [keyboard[i:i + 2] for i in range(0, len(keyboard), 2)]
     reply_markup = InlineKeyboardMarkup(arranged_keyboard)
 
@@ -435,7 +399,7 @@ async def process_analysis_callback_query(update: Update, context: ContextTypes.
     await query.answer()
 
     timeframe_display_name = query.data.split('_')[-1]
-    market_info = context.user_data.get('market_info') # Ambil info market yang sudah disimpan
+    market_info = context.user_data.get('market_info') 
     
     if not market_info:
         await query.edit_message_text("Terjadi kesalahan. Silakan mulai ulang dengan /analyze [SIMBOL].")
@@ -443,42 +407,36 @@ async def process_analysis_callback_query(update: Update, context: ContextTypes.
 
     await query.edit_message_text(f"Menganalisis {market_info['display_name']} pada timeframe {timeframe_display_name}...")
 
-    # --- Proses Analisis ---
     current_price, price_error = await get_current_price(market_info)
     if current_price is None:
-        await query.edit_message_text(f"Maaf, tidak dapat mengambil harga terkini untuk {market_info['display_name']}. {price_error or ''}")
+        await query.edit_message_text(f"Maaf, tidak dapat mengambil harga terkini untuk {market_info['display_name']}. {price_error or 'Silakan coba lagi.'}")
         return
 
     ohlcv_df, ohlcv_error = await get_ohlcv_data(market_info, timeframe_display_name)
     if ohlcv_df is None or ohlcv_df.empty:
-        await query.edit_message_text(f"Maaf, tidak dapat mengambil data historis untuk {market_info['display_name']} ({timeframe_display_name}). {ohlcv_error or ''}")
+        await query.edit_message_text(f"Maaf, tidak dapat mengambil data historis untuk {market_info['display_name']} ({timeframe_display_name}). {ohlcv_error or 'Silakan coba lagi.'}")
         return
     
-    # Pastikan data cukup untuk menghitung indikator (misal MACD butuh setidaknya 26 candle)
     if len(ohlcv_df) < 26: 
         await query.edit_message_text(f"Maaf, data historis yang tersedia ({len(ohlcv_df)} candle) tidak cukup untuk menghitung indikator (butuh minimal 26 candle).")
         return
 
     rsi, macd, macd_h, macd_s = calculate_indicators(ohlcv_df)
-    if rsi is None: # Ini bisa terjadi jika data tidak cukup setelah pemotongan NaN oleh pandas_ta
+    if rsi is None: 
         await query.edit_message_text(f"Maaf, indikator tidak dapat dihitung dengan data yang tersedia untuk {market_info['display_name']}. Pastikan ada cukup data historis.")
         return
     
-    # Dapatkan saran dan alasan untuk candle terakhir
     suggestion, reasons = get_buy_sell_suggestion_with_reasons(ohlcv_df, rsi, macd, macd_h, macd_s)
 
-    # --- Buat Grafik dan Kirim ---
     try:
         plot_buffer = plot_candlestick_with_signals(ohlcv_df, market_info['display_name'], timeframe_display_name, suggestion, reasons)
         
-        # Penentuan jumlah desimal untuk harga
         if market_info['type'] in ['forex', 'commodity']:
-            # Coba deteksi presisi berdasarkan harga. Emas bisa 2 desimal, Forex 4-5.
-            if current_price < 100: # Misal EURUSD
+            if current_price < 100: 
                 price_format = ",.5f"
-            else: # Misal XAUUSD
+            else: 
                 price_format = ",.2f"
-        else: # Crypto
+        else: 
             price_format = ",.2f"
         
         caption = (
@@ -500,15 +458,9 @@ async def process_analysis_callback_query(update: Update, context: ContextTypes.
         )
         await query.delete_message()
 
-        # --- Tambahkan Tombol Fitur Tambahan ---
         tradingview_symbol = ""
         if market_info['type'] == 'crypto':
-            # TradingView umumnya menggunakan format BINANCE:SYMBOL untuk kripto jika ada di Binance.
-            # Karena kita tidak pakai Binance, mungkin perlu cari bursa lain di TradingView.
-            # Atau, gunakan simbol dasar saja, TradingView akan mencoba mencocokkan.
-            tradingview_symbol = f"{market_info['symbols']['av_from']}{market_info['symbols']['av_to'].replace('USD', '')}" # Misal BTCUSD -> BTCUSDT atau BTCUSD
-            # Contoh umum untuk AV Crypto di TradingView: COINBASE:BTCUSD atau NASDAQ:BTCUSD.
-            # Karena ini tidak spesifik bursa, TradingView akan mencoba auto-detect.
+            tradingview_symbol = f"{market_info['symbols']['av_from']}{market_info['symbols']['av_to']}" 
         elif market_info['type'] in ['forex', 'commodity']:
             tradingview_symbol = f"FX_IDC:{market_info['symbols']['av_from']}{market_info['symbols']['av_to']}"
         
@@ -554,9 +506,8 @@ async def explain_macd_callback(update: Update, context: ContextTypes.DEFAULT_TY
 async def reanalyze_market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    original_symbol = query.data.split('__')[-1] # Ambil simbol asli dari callback data
+    original_symbol = query.data.split('__')[-1] 
 
-    # Simulasikan kembali command /analyze dengan simbol yang sama
     temp_update = Update(update_id=query.update_id) 
     temp_update.message = query.message 
     temp_update.message.text = f"/analyze {original_symbol}" 
@@ -571,7 +522,6 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("analyze", analyze_command)) 
     
-    # Callback Handlers
     application.add_handler(CallbackQueryHandler(process_analysis_callback_query, pattern='^analyze_tf_'))
     application.add_handler(CallbackQueryHandler(explain_rsi_callback, pattern='^explain_rsi$'))
     application.add_handler(CallbackQueryHandler(explain_macd_callback, pattern='^explain_macd$'))
