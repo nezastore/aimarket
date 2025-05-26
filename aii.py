@@ -23,7 +23,7 @@ TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Tele
 # Cara 2: Menggunakan environment variable (lebih aman)
 # Anda perlu mengatur environment variable bernama GOOGLE_GEMINI_API_KEY dengan nilai API Key Anda.
 try:
-    GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
+    GOOGLE_GEMINI_API_KEY = os.getenv("AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac")
     if not GOOGLE_GEMINI_API_KEY:
         print("PERINGATAN: Environment variable GOOGLE_GEMINI_API_KEY belum di-set.")
         # Fallback jika ingin tetap mencoba dengan string dari file (JANGAN lakukan di produksi)
