@@ -2,7 +2,7 @@ import requests
 import io
 import time
 import re
-import os # Untuk mengambil API Key dari environment variable (lebih aman)
+import os # os tidak lagi terlalu dibutuhkan jika tidak pakai getenv untuk API Key ini
 
 # Telegram Bot Library
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, File
@@ -15,25 +15,25 @@ from PIL import Image # Pillow untuk memproses gambar
 # --- Konfigurasi ---
 TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Telegram Anda
 
-# KONFIGURASI GEMINI API KEY:
-# Cara 1: Langsung di kode (kurang aman, JANGAN lakukan ini di kode publik)
-GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # GANTI DENGAN API KEY ANDA YANG VALID
-genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
+# ==============================================================================
+# --- KONFIGURASI GEMINI API KEY ---
+# Anda memasukkan API Key langsung di sini.
+# PERINGATAN: Ini kurang aman jika kode ini dibagikan atau disimpan di repositori publik.
+# Pastikan ini adalah API Key Anda yang VALID.
+GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- API KEY GEMINI ANDA
+# ==============================================================================
 
-# Cara 2: Menggunakan environment variable (lebih aman)
-# Anda perlu mengatur environment variable bernama GOOGLE_GEMINI_API_KEY dengan nilai API Key Anda.
+# Mengkonfigurasi dan menginisialisasi Model Gemini
 try:
-    GOOGLE_GEMINI_API_KEY = os.getenv("AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac")
-    if not GOOGLE_GEMINI_API_KEY:
-        print("PERINGATAN: Environment variable GOOGLE_GEMINI_API_KEY belum di-set.")
-        # Fallback jika ingin tetap mencoba dengan string dari file (JANGAN lakukan di produksi)
-        # GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # GANTI DENGAN API KEY ANDA
-    genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
-    # Inisialisasi model (hanya untuk vision)
-    gemini_vision_model = genai.GenerativeModel('gemini-pro-vision')
-    print("Model Gemini Pro Vision berhasil diinisialisasi.")
+    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac": # Tambahan cek jika placeholder belum diisi
+        print("PERINGATAN: GOOGLE_GEMINI_API_KEY di dalam kode belum diisi dengan API Key yang valid.")
+        gemini_vision_model = None
+    else:
+        genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
+        gemini_vision_model = genai.GenerativeModel('gemini-pro-vision')
+        print("Model Gemini Pro Vision berhasil diinisialisasi dengan API Key dari kode.")
 except Exception as e:
-    print(f"Error konfigurasi Gemini API: {e}. Pastikan API Key valid dan library terinstal.")
+    print(f"Error konfigurasi Gemini API: {e}. Pastikan API Key valid (yang dimasukkan di kode) dan library terinstal.")
     gemini_vision_model = None
 
 
@@ -152,10 +152,6 @@ async def ai_analysis_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         await query.edit_message_text(text="Memberikan saran buy/sell (eksperimental)...")
     elif callback_data == "ai_custom_prompt":
-        # Untuk prompt kustom, Anda bisa meminta pengguna mengirim prompt tambahan,
-        # atau memiliki beberapa prompt yang sudah ditentukan sebelumnya.
-        # Untuk saat ini, kita gunakan prompt generik lagi.
-        # Nanti bisa dikembangkan jadi state conversation untuk meminta prompt dari user.
         await query.message.reply_text("Silakan ketik prompt spesifik Anda untuk menganalisis gambar yang baru saja dikirim. Awali dengan /promptaisaya [prompt Anda]")
         return # Tidak langsung menganalisis, tunggu input prompt dari user
 
@@ -191,9 +187,9 @@ async def handle_custom_prompt(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # --- Main Function ---
 def main():
-    if not GOOGLE_GEMINI_API_KEY or gemini_vision_model is None:
-        print("GAGAL MENJALANKAN BOT: API Key Gemini tidak terkonfigurasi atau model gagal dimuat.")
-        print("Pastikan environment variable GOOGLE_GEMINI_API_KEY sudah di-set dengan benar.")
+    if gemini_vision_model is None: # Cek utama apakah model berhasil dimuat
+        print("GAGAL MENJALANKAN BOT: Model Gemini gagal dimuat.")
+        print("Pastikan API Key yang Anda masukkan di dalam kode (GOOGLE_GEMINI_API_KEY) sudah benar dan valid, serta library google-generativeai terinstal.")
         return
 
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
