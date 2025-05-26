@@ -17,8 +17,8 @@ TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Tele
 
 # KONFIGURASI GEMINI API KEY:
 # Cara 1: Langsung di kode (kurang aman, JANGAN lakukan ini di kode publik)
-# GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # GANTI DENGAN API KEY ANDA YANG VALID
-# genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
+GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # GANTI DENGAN API KEY ANDA YANG VALID
+genai.configure(api_key=AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac)
 
 # Cara 2: Menggunakan environment variable (lebih aman)
 # Anda perlu mengatur environment variable bernama GOOGLE_GEMINI_API_KEY dengan nilai API Key Anda.
