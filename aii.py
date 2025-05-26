@@ -64,7 +64,7 @@ except Exception as e:
 # --- Fungsi Analisis Gambar dengan Gemini ---
 async def analyze_image_with_gemini(image_bytes: bytes, text_prompt: str):
     if not gemini_vision_model:
-        return "Error: Model AI Gemini tidak terinisialisasi. Periksa pesan error saat bot dimulai."
+        return "Error: Model AI tidak terinisialisasi. Periksa pesan error saat bot dimulai."
     if not image_bytes:
         return "Error: Tidak ada data gambar untuk dianalisis."
     try:
@@ -78,7 +78,7 @@ async def analyze_image_with_gemini(image_bytes: bytes, text_prompt: str):
                 return "AI tidak memberikan respons teks yang valid."
         return response.text
     except Exception as e:
-        return f"Kesalahan komunikasi dengan AI Gemini: {str(e)}"
+        return f"Kesalahan komunikasi dengan AI : {str(e)}"
 
 # --- Handler Bot Telegram ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -120,7 +120,7 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     
     processing_message = await message.reply_text(
         f"🖼️ Screenshot untuk '{label}' diterima!\n"
-        f"⏳ Menganalisis secara otomatis dengan AI Gemini... Mohon tunggu sebentar."
+        f"⏳ Menganalisis secara otomatis dengan AI ... Mohon tunggu sebentar."
     )
 
     ai_response = await analyze_image_with_gemini(image_bytes_io.getvalue(), DEFAULT_ANALYSIS_PROMPT)
@@ -165,9 +165,9 @@ async def ai_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
 def main():
     if gemini_vision_model is None:
         print("--------------------------------------------------------------------------------")
-        print("GAGAL MENJALANKAN BOT: Model Gemini gagal dimuat.")
+        print("GAGAL MENJALANKAN BOT: Model AI gagal dimuat.")
         print("           Silakan periksa pesan PERINGATAN atau Error di atas terkait")
-        print("           konfigurasi API Key Gemini di dalam kode skrip ini (di bagian atas skrip).")
+        print("           konfigurasi API Key di dalam kode skrip ini (di bagian atas skrip).")
         print("           Pastikan Anda sudah mengganti placeholder dengan API Key yang valid.")
         print("--------------------------------------------------------------------------------")
         return
