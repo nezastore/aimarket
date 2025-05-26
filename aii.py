@@ -40,14 +40,15 @@ try:
         print("PERINGATAN: API Key Gemini (GOOGLE_GEMINI_API_KEY) di dalam kode belum diisi")
         print("            dengan benar, masih berupa placeholder, atau terlalu pendek.")
         print("            Harap edit skrip Python ini dan isi API Key Anda yang valid pada")
-        print(f"            variabel GOOGLE_GEMINI_API_KEY (sekitar baris { inspect.currentframe().f_lineno - 10 }).") # Perkiraan baris
+        print(f"            variabel GOOGLE_GEMINI_API_KEY (di bagian atas skrip).") 
         print("--------------------------------------------------------------------------------")
         # gemini_vision_model akan tetap None (karena diinisialisasi None di atas)
     else:
         # Jika API Key tampak sudah diisi dan memiliki panjang yang wajar, coba konfigurasi
         genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
-        gemini_vision_model = genai.GenerativeModel('gemini-pro-vision')
-        print("Model Gemini Pro Vision berhasil diinisialisasi dengan API Key dari kode.")
+        # --- PERUBAHAN MODEL DI SINI ---
+        gemini_vision_model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+        print("Model Gemini (gemini-1.5-flash-latest) berhasil diinisialisasi dengan API Key dari kode.")
 except Exception as e:
     print(f"Error saat konfigurasi atau inisialisasi Model Gemini: {e}")
     print("Pastikan:")
@@ -66,13 +67,18 @@ async def analyze_image_with_gemini(image_bytes: bytes, text_prompt: str):
     try:
         img = Image.open(io.BytesIO(image_bytes))
         contents = [text_prompt, img]
+        # Untuk model Gemini 1.5, pastikan input sesuai. Biasanya list of parts [text, image] masih oke.
         response = await gemini_vision_model.generate_content_async(contents)
         
-        if not response.parts:
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
+        if not response.parts: # Atau bisa jadi response.text langsung kosong jika ada masalah
+            # Cek feedback untuk detail lebih lanjut jika ada
+            if hasattr(response, 'prompt_feedback') and response.prompt_feedback and response.prompt_feedback.block_reason:
                 return f"Analisis diblokir oleh AI. Alasan: {response.prompt_feedback.block_reason_message or response.prompt_feedback.block_reason}"
-            return "AI tidak memberikan respons teks. Mungkin karena filter keamanan, gambar tidak jelas, atau API Key bermasalah."
-        return response.text
+            # Cek jika ada candidate yang kosong atau tidak ada text
+            if not response.candidates or not response.candidates[0].content.parts or not response.candidates[0].content.parts[0].text:
+                 return "AI tidak memberikan respons teks yang valid. Mungkin karena filter keamanan, gambar tidak jelas, atau API Key bermasalah."
+
+        return response.text # Akses teks bisa sedikit berbeda tergantung struktur respons model baru
     except Exception as e:
         return f"Terjadi kesalahan saat berkomunikasi dengan AI Gemini: {str(e)}"
 
@@ -86,9 +92,9 @@ def detect_market_and_normalize_symbol(user_symbol):
 # --- Handler Bot Telegram ---
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "Halo! Saya bot untuk membantu analisis pasar menggunakan AI.\n"
+        "Halo! Saya bot NEZASTORE untuk membantu analisis pasar menggunakan AI.\n"
         "Kirimkan saya screenshot chart yang ingin Anda analisis.\n\n"
-        "Anda juga bisa ketik /label [NAMA_PAIR] sebelum mengirim screenshot untuk memberi label (opsional)."
+        "Anda juga bisa ketik /ai [NAMA_PAIR] sebelum mengirim screenshot untuk memberi label (opsional)."
     )
 
 async def label_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -105,7 +111,7 @@ async def label_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text("Label tidak valid. Cukup kirim screenshot chart Anda.")
     else:
         await update.message.reply_text(
-            "Gunakan format /label [NAMA_PAIR] untuk memberi label pada analisis screenshot Anda."
+            "Gunakan format /ai [NAMA_PAIR] untuk memberi label pada analisis screenshot Anda."
         )
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -152,16 +158,16 @@ async def ai_analysis_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     prompt = ""
     if callback_data == "ai_describe_chart":
         prompt = "Jelaskan secara umum apa yang kamu lihat pada chart trading ini. Fokus pada tren utama, potensi area support/resistance jika terlihat, dan kondisi candlestick terakhir jika signifikan."
-        await query.edit_message_text(text="Menganalisis deskripsi umum chart...")
+        await query.edit_message_text(text="Menganalisis deskripsi umum chart dengan model baru...")
     elif callback_data == "ai_identify_pattern":
         prompt = "Analisis chart trading ini. Apakah kamu melihat pola chart klasik (misalnya, head and shoulders, double top/bottom, triangle, flag, pennant)? Jika ya, sebutkan polanya dan di mana kira-kira kamu melihatnya. Berikan juga level konfirmasi atau target potensial jika pola tersebut valid menurutmu."
-        await query.edit_message_text(text="Mengidentifikasi pola chart (respons teks)...")
+        await query.edit_message_text(text="Mengidentifikasi pola chart (respons teks) dengan model baru...")
     elif callback_data == "ai_buy_sell_signal":
         prompt = (
             "PERHATIAN: Ini adalah analisis eksperimental dan BUKAN SARAN FINANSIAL.\n"
             "Berdasarkan chart trading ini, dan dengan menganalisis candlestick terakhir, potensi pola, serta area support/resistance yang mungkin terlihat, apakah ada kecenderungan sinyal 'buy' atau 'sell'? Berikan alasan singkat untuk analisismu. Ingatlah bahwa ini hanya interpretasi visual dari gambar statis."
         )
-        await query.edit_message_text(text="Memberikan saran buy/sell (eksperimental)...")
+        await query.edit_message_text(text="Memberikan saran buy/sell (eksperimental) dengan model baru...")
     elif callback_data == "ai_custom_prompt":
         await query.message.reply_text("Silakan ketik prompt spesifik Anda untuk menganalisis gambar yang baru saja dikirim. Awali dengan /promptaisaya [prompt Anda]")
         return
@@ -193,15 +199,14 @@ async def handle_custom_prompt(update: Update, context: ContextTypes.DEFAULT_TYP
 
 # --- Main Function ---
 def main():
-    # Untuk mendapatkan nomor baris yang benar untuk pesan error, kita butuh 'inspect'
-    # Namun, untuk menjaga kesederhanaan, kita akan merujuk ke bagian atas skrip.
-    # Jika inspect ingin digunakan, tambahkan 'import inspect' di paling atas.
+    # Hapus 'import inspect' jika tidak digunakan untuk f_lineno
+    # import inspect 
     
     if gemini_vision_model is None: # Cek utama apakah model berhasil dimuat
         print("--------------------------------------------------------------------------------")
         print("GAGAL MENJALANKAN BOT: Model Gemini gagal dimuat.")
         print("           Silakan periksa pesan PERINGATAN atau Error di atas terkait")
-        print("           konfigurasi API Key Gemini di dalam kode skrip ini (sekitar baris 25).")
+        print("           konfigurasi API Key Gemini di dalam kode skrip ini (di bagian atas skrip).")
         print("           Pastikan Anda sudah mengganti placeholder dengan API Key yang valid.")
         print("--------------------------------------------------------------------------------")
         return
@@ -219,6 +224,4 @@ def main():
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    # Tambahkan import inspect di sini jika ingin menggunakan f_lineno di atas
-    import inspect 
     main()
