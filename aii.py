@@ -20,21 +20,25 @@ TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Tele
 # Anda memasukkan API Key langsung di sini.
 # PERINGATAN: Ini kurang aman jika kode ini dibagikan atau disimpan di repositori publik.
 # Pastikan ini adalah API Key Anda yang VALID.
- GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac"  <--- API KEY GEMINI ANDA
+GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- ISI API KEY GEMINI ANDA YANG VALID DI SINI (GANTI xxxxxxx)
 # ==============================================================================
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
+gemini_vision_model = None # Inisialisasi di luar try agar selalu ada
 try:
-    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac":  Tambahan cek jika placeholder belum diisi
-        print("PERINGATAN: GOOGLE_GEMINI_API_KEY di dalam kode belum diisi dengan API Key yang valid.")
-        gemini_vision_model = None
+    # Cek apakah API Key KOSONG atau masih berupa PLACEHOLDER UMUM atau terlalu pendek.
+    # Anda bisa menyesuaikan string "PLACEHOLDER_UMUM_DISINI" jika Anda menggunakan placeholder lain.
+    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" or GOOGLE_GEMINI_API_KEY == "PLACEHOLDER_UMUM_DISINI" or len(GOOGLE_GEMINI_API_KEY) < 30:
+        print("PERINGATAN: GOOGLE_GEMINI_API_KEY (di baris atas) belum diisi dengan API Key yang valid atau terlalu pendek.")
+        # gemini_vision_model akan tetap None seperti yang diinisialisasi di atas
     else:
+        # Jika API Key tampak valid, maka lanjutkan konfigurasi.
         genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
         gemini_vision_model = genai.GenerativeModel('gemini-pro-vision')
         print("Model Gemini Pro Vision berhasil diinisialisasi dengan API Key dari kode.")
 except Exception as e:
     print(f"Error konfigurasi Gemini API: {e}. Pastikan API Key valid (yang dimasukkan di kode) dan library terinstal.")
-    gemini_vision_model = None
+    # gemini_vision_model sudah None dari inisialisasi awal jika error terjadi
 
 
 # --- Fungsi Analisis Gambar dengan Gemini ---
