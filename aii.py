@@ -2,7 +2,7 @@ import requests
 import io
 import time
 import re
-import os # os tidak lagi terlalu dibutuhkan jika tidak pakai getenv untuk API Key ini
+import os # Meskipun API Key di-hardcode, 'os' mungkin masih berguna untuk hal lain
 
 # Telegram Bot Library
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, File
@@ -15,55 +15,63 @@ from PIL import Image # Pillow untuk memproses gambar
 # --- Konfigurasi ---
 TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Telegram Anda
 
-# ==============================================================================
-# --- KONFIGURASI GEMINI API KEY ---
-# Anda memasukkan API Key langsung di sini.
-# PERINGATAN: Ini kurang aman jika kode ini dibagikan atau disimpan di repositori publik.
-# Pastikan ini adalah API Key Anda yang VALID.
-GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- ISI API KEY GEMINI ANDA YANG VALID DI SINI (GANTI xxxxxxx)
-# ==============================================================================
+# =====================================================================================
+# --- !!! PENTING: ISI API KEY GEMINI ANDA DI SINI !!! ---
+# Ganti string "MASUKKAN_API_KEY_GEMINI_ANDA_YANG_VALID_DISINI" 
+# dengan API Key Gemini Anda yang sebenarnya.
+# Contoh: GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac"
+#
+# PERINGATAN: Menyimpan API Key langsung di kode kurang aman jika kode ini akan Anda bagikan
+# atau simpan di tempat penyimpanan kode publik (seperti GitHub).
+# Untuk penggunaan pribadi di komputer Anda sendiri, ini bisa diterima.
+
+GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac"
+# =====================================================================================
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
-gemini_vision_model = None # Inisialisasi di luar try agar selalu ada
+gemini_vision_model = None # Inisialisasi di luar try agar variabel selalu ada
 try:
-    # Cek apakah API Key KOSONG atau masih berupa PLACEHOLDER UMUM atau terlalu pendek.
-    # Anda bisa menyesuaikan string "PLACEHOLDER_UMUM_DISINI" jika Anda menggunakan placeholder lain.
-    if not GOOGLE_GEMINI_API_KEY or GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" or GOOGLE_GEMINI_API_KEY == "PLACEHOLDER_UMUM_DISINI" or len(GOOGLE_GEMINI_API_KEY) < 30:
-        print("PERINGATAN: GOOGLE_GEMINI_API_KEY (di baris atas) belum diisi dengan API Key yang valid atau terlalu pendek.")
-        # gemini_vision_model akan tetap None seperti yang diinisialisasi di atas
+    # Pengecekan apakah API Key sudah diisi dengan benar (bukan placeholder, tidak kosong, dan tidak terlalu pendek)
+    if (not GOOGLE_GEMINI_API_KEY or
+            GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" or
+            len(GOOGLE_GEMINI_API_KEY) < 30): # API Key Gemini biasanya lebih panjang dari 30 karakter
+
+        print("--------------------------------------------------------------------------------")
+        print("PERINGATAN: API Key Gemini (GOOGLE_GEMINI_API_KEY) di dalam kode belum diisi")
+        print("            dengan benar, masih berupa placeholder, atau terlalu pendek.")
+        print("            Harap edit skrip Python ini dan isi API Key Anda yang valid pada")
+        print("            variabel GOOGLE_GEMINI_API_KEY (sekitar baris 25).")
+        print("--------------------------------------------------------------------------------")
+        # gemini_vision_model akan tetap None (karena diinisialisasi None di atas)
     else:
-        # Jika API Key tampak valid, maka lanjutkan konfigurasi.
+        # Jika API Key tampak sudah diisi dan memiliki panjang yang wajar, coba konfigurasi
         genai.configure(api_key=GOOGLE_GEMINI_API_KEY)
         gemini_vision_model = genai.GenerativeModel('gemini-pro-vision')
         print("Model Gemini Pro Vision berhasil diinisialisasi dengan API Key dari kode.")
 except Exception as e:
-    print(f"Error konfigurasi Gemini API: {e}. Pastikan API Key valid (yang dimasukkan di kode) dan library terinstal.")
-    # gemini_vision_model sudah None dari inisialisasi awal jika error terjadi
-
+    print(f"Error saat konfigurasi atau inisialisasi Model Gemini: {e}")
+    print("Pastikan:")
+    print("1. API Key Gemini yang Anda masukkan di kode sudah benar dan valid.")
+    print("2. Layanan Generative Language API (untuk Gemini) sudah aktif di proyek Google Cloud Anda.")
+    print("3. Library 'google-generativeai' sudah terinstal dengan benar (`pip install google-generativeai`).")
+    # gemini_vision_model akan tetap None jika ada error
 
 # --- Fungsi Analisis Gambar dengan Gemini ---
 async def analyze_image_with_gemini(image_bytes: bytes, text_prompt: str):
     if not gemini_vision_model:
-        return "Error: Model AI Gemini tidak terinisialisasi. Periksa API Key dan konfigurasi."
+        return "Error: Model AI Gemini tidak terinisialisasi. Periksa pesan error saat bot dimulai terkait API Key dan konfigurasi."
     if not image_bytes:
         return "Error: Tidak ada data gambar untuk dianalisis."
 
     try:
-        # Persiapkan konten gambar untuk API
         img = Image.open(io.BytesIO(image_bytes))
-        
-        # Model 'gemini-pro-vision' menerima list dari [text, image] atau [text, image, text, ...]
         contents = [text_prompt, img]
+        response = await gemini_vision_model.generate_content_async(contents)
         
-        response = await gemini_vision_model.generate_content_async(contents) # Gunakan async
-        
-        # Hati-hati dengan safety ratings, bisa menyebabkan tidak ada 'text'
         if not response.parts:
-             # Cek apakah diblokir karena safety atau alasan lain
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 return f"Analisis diblokir oleh AI. Alasan: {response.prompt_feedback.block_reason_message or response.prompt_feedback.block_reason}"
-            return "AI tidak memberikan respons teks. Mungkin karena filter keamanan atau gambar tidak jelas."
-
+            return "AI tidak memberikan respons teks. Mungkin karena filter keamanan, gambar tidak jelas, atau API Key bermasalah."
         return response.text
     except Exception as e:
         return f"Terjadi kesalahan saat berkomunikasi dengan AI Gemini: {str(e)}"
@@ -106,9 +114,9 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     
     image_bytes_io = io.BytesIO()
     await photo_file.download_to_memory(image_bytes_io)
-    image_bytes_io.seek(0) # Penting untuk reset pointer setelah download
+    image_bytes_io.seek(0)
     
-    context.user_data['last_image_bytes'] = image_bytes_io.getvalue() # Simpan byte gambar
+    context.user_data['last_image_bytes'] = image_bytes_io.getvalue()
 
     label = context.user_data.get('market_info_label', "Screenshot")
 
@@ -121,19 +129,18 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         [InlineKeyboardButton("Deskripsi Umum Chart", callback_data="ai_describe_chart")],
         [InlineKeyboardButton("Identifikasi Pola (Teks)", callback_data="ai_identify_pattern")],
         [InlineKeyboardButton("Saran Buy/Sell (Eksperimental)", callback_data="ai_buy_sell_signal")],
-        [InlineKeyboardButton("Analisis Metode Kustom (Prompt)", callback_data="ai_custom_prompt")], # Untuk input prompt sendiri
+        [InlineKeyboardButton("Analisis Metode Kustom (Prompt)", callback_data="ai_custom_prompt")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard_new_project)
     await message.reply_text("Pilih aksi untuk screenshot ini:", reply_markup=reply_markup)
 
-    # Reset label setelah digunakan
     if 'market_info_label' in context.user_data:
         del context.user_data['market_info_label']
 
 # --- Callback Query Handlers ---
 async def ai_analysis_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    await query.answer() # Selalu jawab callback query
+    await query.answer()
 
     callback_data = query.data
     image_bytes = context.user_data.get('last_image_bytes')
@@ -157,21 +164,17 @@ async def ai_analysis_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(text="Memberikan saran buy/sell (eksperimental)...")
     elif callback_data == "ai_custom_prompt":
         await query.message.reply_text("Silakan ketik prompt spesifik Anda untuk menganalisis gambar yang baru saja dikirim. Awali dengan /promptaisaya [prompt Anda]")
-        return # Tidak langsung menganalisis, tunggu input prompt dari user
+        return
 
     else:
         await query.edit_message_text(text=f"Pilihan tidak diketahui: {callback_data}")
         return
     
-    # Lakukan analisis AI
     ai_response = await analyze_image_with_gemini(image_bytes, prompt)
-    
-    # Kirim hasil sebagai pesan baru agar tidak terpotong jika terlalu panjang untuk edit_message_text
     await query.message.reply_text(f"**Hasil Analisis AI ({callback_data}):**\n\n{ai_response}", parse_mode='Markdown')
 
 
 async def handle_custom_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Menangani prompt kustom dari pengguna setelah tombol 'Analisis Metode Kustom' ditekan."""
     if not context.args:
         await update.message.reply_text("Format salah. Gunakan: /promptaisaya [prompt Anda]")
         return
@@ -192,18 +195,21 @@ async def handle_custom_prompt(update: Update, context: ContextTypes.DEFAULT_TYP
 # --- Main Function ---
 def main():
     if gemini_vision_model is None: # Cek utama apakah model berhasil dimuat
+        print("--------------------------------------------------------------------------------")
         print("GAGAL MENJALANKAN BOT: Model Gemini gagal dimuat.")
-        print("Pastikan API Key yang Anda masukkan di dalam kode (GOOGLE_GEMINI_API_KEY) sudah benar dan valid, serta library google-generativeai terinstal.")
+        print("           Silakan periksa pesan PERINGATAN atau Error di atas terkait")
+        print("           konfigurasi API Key Gemini di dalam kode skrip ini.")
+        print("--------------------------------------------------------------------------------")
         return
 
     application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("label", label_command))
-    application.add_handler(CommandHandler("promptaisaya", handle_custom_prompt)) # Untuk menangani prompt kustom
+    application.add_handler(CommandHandler("promptaisaya", handle_custom_prompt))
 
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    application.add_handler(CallbackQueryHandler(ai_analysis_callback)) # Menangani semua callback dari tombol AI
+    application.add_handler(CallbackQueryHandler(ai_analysis_callback))
 
     print("Bot AI Analisis Screenshot sedang berjalan...")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
