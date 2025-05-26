@@ -25,7 +25,7 @@ TELEGRAM_BOT_TOKEN = "7927741258:AAH4ARZUoVJhZiaTqDZCr3SvI5Wrp1naF70" # API Tele
 # atau simpan di tempat penyimpanan kode publik (seperti GitHub).
 # Untuk penggunaan pribadi di komputer Anda sendiri, ini bisa diterima.
 
-GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac"
+GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- GANTI INI DENGAN API KEY ANDA
 # =====================================================================================
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
@@ -33,14 +33,14 @@ gemini_vision_model = None # Inisialisasi di luar try agar variabel selalu ada
 try:
     # Pengecekan apakah API Key sudah diisi dengan benar (bukan placeholder, tidak kosong, dan tidak terlalu pendek)
     if (not GOOGLE_GEMINI_API_KEY or
-            GOOGLE_GEMINI_API_KEY == "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" or
+            GOOGLE_GEMINI_API_KEY == "MASUKKAN_API_KEY_GEMINI_ANDA_YANG_VALID_DISINI" or
             len(GOOGLE_GEMINI_API_KEY) < 30): # API Key Gemini biasanya lebih panjang dari 30 karakter
 
         print("--------------------------------------------------------------------------------")
         print("PERINGATAN: API Key Gemini (GOOGLE_GEMINI_API_KEY) di dalam kode belum diisi")
         print("            dengan benar, masih berupa placeholder, atau terlalu pendek.")
         print("            Harap edit skrip Python ini dan isi API Key Anda yang valid pada")
-        print("            variabel GOOGLE_GEMINI_API_KEY (sekitar baris 25).")
+        print(f"            variabel GOOGLE_GEMINI_API_KEY (sekitar baris { inspect.currentframe().f_lineno - 10 }).") # Perkiraan baris
         print("--------------------------------------------------------------------------------")
         # gemini_vision_model akan tetap None (karena diinisialisasi None di atas)
     else:
@@ -191,14 +191,18 @@ async def handle_custom_prompt(update: Update, context: ContextTypes.DEFAULT_TYP
     ai_response = await analyze_image_with_gemini(image_bytes, custom_prompt)
     await update.message.reply_text(f"**Hasil Analisis AI (Prompt Kustom):**\n\n{ai_response}", parse_mode='Markdown')
 
-
 # --- Main Function ---
 def main():
+    # Untuk mendapatkan nomor baris yang benar untuk pesan error, kita butuh 'inspect'
+    # Namun, untuk menjaga kesederhanaan, kita akan merujuk ke bagian atas skrip.
+    # Jika inspect ingin digunakan, tambahkan 'import inspect' di paling atas.
+    
     if gemini_vision_model is None: # Cek utama apakah model berhasil dimuat
         print("--------------------------------------------------------------------------------")
         print("GAGAL MENJALANKAN BOT: Model Gemini gagal dimuat.")
         print("           Silakan periksa pesan PERINGATAN atau Error di atas terkait")
-        print("           konfigurasi API Key Gemini di dalam kode skrip ini.")
+        print("           konfigurasi API Key Gemini di dalam kode skrip ini (sekitar baris 25).")
+        print("           Pastikan Anda sudah mengganti placeholder dengan API Key yang valid.")
         print("--------------------------------------------------------------------------------")
         return
 
@@ -215,4 +219,6 @@ def main():
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
+    # Tambahkan import inspect di sini jika ingin menggunakan f_lineno di atas
+    import inspect 
     main()
