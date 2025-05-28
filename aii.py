@@ -25,13 +25,14 @@ GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- GANTI I
 
 # Prompt Default untuk Analisis Otomatis Screenshot
 DEFAULT_ANALYSIS_PROMPT = (
-    "Anda adalah seorang analis teknikal pasar keuangan. PERHATIAN: Analisis ini bersifat Profesional dan Tingkat kecerdasan Program.\n\n"
+    "Anda adalah seorang analis teknikal pasar keuangan.  Analisis ini bersifat Profesional dan Tingkat kecerdasan Program.\n\n"
     "Analisis screenshot chart trading berikut ini secara detail. Fokus pada elemen-elemen berikut jika terlihat dengan jelas di gambar:\n"
     "1. Perkiraan Harga Saat Ini: (jika ada skala harga yang jelas dan mudah dibaca).\n"
     "2. Tren Utama: (Contoh: Naik, Turun, Sideways/Konsolidasi).\n"
     "3. Pola Candlestick/Chart Signifikan: (Contoh: Doji di Puncak/Lembah, Engulfing, Hammer, Shooting Star, Head and Shoulders, Double Top/Bottom, Triangle, Flag, Wedge, Channel).\n"
     "4. Kondisi Indikator Teknikal Utama (jika terlihat jelas): (Contoh: RSI (Oversold <30, Overbought >70, Divergence), MACD (Golden/Death Cross, Divergence, Posisi Histogram), Moving Averages (Posisi harga terhadap MA, Golden/Death Cross MA), Bollinger Bands (Harga menyentuh upper/lower band, Squeeze)).\n"
     "5. Level Support dan Resistance Kunci: (Identifikasi beberapa level S&R penting yang terlihat).\n\n"
+    "6. Gunakan strategi Pola 7 Candle & Teknik 7 Naga.\n"
     "Berdasarkan semua observasi di atas, berikan:\n"
     "A. **Saran Trading Keseluruhan:** (BUY, SELL, atau NETRAL/WAIT)\n"
     "B. **Alasan Utama (poin-poin):** (Berikan minimal 2-3 alasan utama untuk saran trading Anda, merujuk pada observasi dari poin 1-5 di atas).\n"
