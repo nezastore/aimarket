@@ -25,7 +25,7 @@ GOOGLE_GEMINI_API_KEY = "AIzaSyCpYrPfiG0hiccKOkGowU8rfFDYWxarnac" # <--- GANTI I
 
 # Prompt Default untuk Analisis Otomatis Screenshot
 DEFAULT_ANALYSIS_PROMPT = (
-    "Anda adalah seorang analis teknikal pasar keuangan.  Analisis ini bersifat Profesional dan Tingkat kecerdasan Program.\n\n"
+    "Anda adalah seorang analis teknikal pasar keuangan.  Analisis ini bersifat Profesional dan Tingkat kecerdasan Program Ai.\n\n"
     "Analisis screenshot chart trading berikut ini secara detail. Fokus pada elemen-elemen berikut jika terlihat dengan jelas di gambar:\n"
     "1. Perkiraan Harga Saat Ini: (jika ada skala harga yang jelas dan mudah dibaca).\n"
     "2. Tren Utama: (Contoh: Naik, Turun, Sideways/Konsolidasi).\n"
@@ -35,11 +35,11 @@ DEFAULT_ANALYSIS_PROMPT = (
     "6. Gunakan strategi Pola 7 Candle & Teknik 7 Naga.\n"
     "Berdasarkan semua observasi di atas, berikan:\n"
     "A. **Saran Trading Keseluruhan:** (BUY, SELL, atau NETRAL/WAIT)\n"
-    "B. **Alasan Utama (poin-poin):** (Berikan minimal 2-3 alasan utama untuk saran trading Anda, merujuk pada observasi dari poin 1-5 di atas).\n"
+    "B. **Alasan Utama (poin-poin):** (Berikan minimal 2-3 alasan utama untuk saran trading Anda, merujuk pada observasi dari poin 1-6 di atas).\n"
     "C. **Potensi Level Penting (jika teridentifikasi dari chart):**\n"
     "   - Target Profit (TP) potensial: [jika ada]\n"
     "   - Stop Loss (SL) potensial: [jika ada]\n\n"
-    "Struktur jawaban Anda sebaiknya jelas, terperinci, dan menggunakan poin-poin atau heading untuk setiap bagian. Ingat, ini adalah Trading forex maka usahakan semaksimal mungkin untuk analisa."
+    "Struktur jawaban Anda sebaiknya jelas, terperinci, dan menggunakan Tampilan yang keren dan point setiap bagian."
 )
 
 # Mengkonfigurasi dan menginisialisasi Model Gemini
